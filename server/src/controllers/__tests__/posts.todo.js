@@ -22,8 +22,9 @@ test('getPosts returns all posts in the database', async () => {
   }
   await postsController.getPosts(req, res)
   expect(res.json).toHaveBeenCalledTimes(1)
-  const {posts} = res.json.mock.calls[0][0]
   const actualPosts = await db.getPosts()
+  expect(res.json).toHaveBeenCalledWith({posts: actualPosts})
+  const {posts} = res.json.mock.calls[0][0]
   expect(posts).toEqual(actualPosts)
 })
 
@@ -61,15 +62,52 @@ test('getPost returns the specific post', async () => {
 
   await postsController.getPost(req, res)
   expect(res.json).toHaveBeenCalledTimes(1)
+  const actualPost = await db.getPost(req.params.id)
+  expect(res.json).toHaveBeenCalledWith({post: actualPost})
   expect(res.status(400).send).toHaveBeenCalledTimes(0)
   const {post} = res.json.mock.calls[0][0]
   expect(post).toEqual(testPost)
-  const actualPost = await db.getPost(req.params.id)
   expect(post).toEqual(actualPost)
 })
 
 test('updatePost updates the post with the given changes', async () => {
   // BONUS: If you have extra time, try to implement this test as well!
+  const title = generate.title()
+  const testPost = await db.insertPost(generate.postData())
+  const req = {
+    params: {
+      id: testPost.id,
+    },
+    body: {title},
+    user: {id: testPost.authorId},
+  }
+  const res = {}
+  Object.assign(res, {
+    status: jest.fn(
+      function status() {
+        return this
+      }.bind(res),
+    ),
+    json: jest.fn(
+      function json() {
+        return this
+      }.bind(res),
+    ),
+    send: jest.fn(
+      function send() {
+        return this
+      }.bind(res),
+    ),
+  })
+
+  await postsController.updatePost(req, res)
+  expect(res.json).toHaveBeenCalledTimes(1)
+  expect(res.status(400).send).toHaveBeenCalledTimes(0)
+  expect(res.status(403).send).toHaveBeenCalledTimes(0)
+  const {post} = res.json.mock.calls[0][0]
+  expect(post).toEqual({...testPost, title})
+  const actualPost = await db.getPost(post.id)
+  expect(post).toEqual(actualPost)
 })
 
 // Here's where you'll add your new `deletePost` tests!
