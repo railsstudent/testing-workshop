@@ -1,7 +1,7 @@
-// import * as postsController from '../posts.todo'
-// import db from '../../utils/db'
 // eslint-disable-next-line no-unused-vars
-import {initDb, generate} from 'til-server-test-utils'
+import {generate, initDb} from 'til-server-test-utils'
+import db from '../../utils/db'
+import * as postsController from '../posts.todo'
 
 // I'll give this one to you. You want the database to be fresh
 // the initDb function will initialize the database with random users and posts
@@ -16,6 +16,15 @@ test('getPosts returns all posts in the database', async () => {
   // Assert:
   //   - ensure that your mock object functions were called properly
   //   - BONUS: ensure that the posts returned are the ones in the database `await db.getPosts()`
+  const req = {}
+  const res = {
+    json: jest.fn(),
+  }
+  await postsController.getPosts(req, res)
+  expect(res.json).toHaveBeenCalledTimes(1)
+  const {posts} = res.json.mock.calls[0][0]
+  const actualPosts = await db.getPosts()
+  expect(posts).toEqual(actualPosts)
 })
 
 test('getPost returns the specific post', async () => {
@@ -27,6 +36,36 @@ test('getPost returns the specific post', async () => {
   // Assert:
   //   - ensure that your mock object functions were called properly
   //   - BONUS: ensure that the post you got back is the same one in the db
+  const testPost = await db.insertPost(generate.postData())
+  const req = {
+    params: {id: testPost.id},
+  }
+  const res = {}
+  Object.assign(res, {
+    status: jest.fn(
+      function status() {
+        return this
+      }.bind(res),
+    ),
+    json: jest.fn(
+      function json() {
+        return this
+      }.bind(res),
+    ),
+    send: jest.fn(
+      function send() {
+        return this
+      }.bind(res),
+    ),
+  })
+
+  await postsController.getPost(req, res)
+  expect(res.json).toHaveBeenCalledTimes(1)
+  expect(res.status(400).send).toHaveBeenCalledTimes(0)
+  const {post} = res.json.mock.calls[0][0]
+  expect(post).toEqual(testPost)
+  const actualPost = await db.getPost(req.params.id)
+  expect(post).toEqual(actualPost)
 })
 
 test('updatePost updates the post with the given changes', async () => {
