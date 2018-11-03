@@ -6,13 +6,27 @@ import * as utilsMock from '../utils'
 // will use the one that exists in the
 // __mocks__ directory which I created for you
 // already (you're welcome)
-jest.mock('../utils', () => {
-  return {
-    getWinner: jest.fn((p1, p2) => p2),
-  }
+// jest.mock('../utils', () => {
+//   return {
+//     getWinner: jest.fn((p1, p2) => p2),
+//   }
+// })
+jest.mock('../utils')
+
+beforeEach(() => {
+  utilsMock.getWinner.mockClear()
 })
 
 test('returns winner', () => {
+  const winner = thumbWar('Ken Wheeler', 'Kent C. Dodds')
+  expect(winner).toBe('Kent C. Dodds')
+  expect(utilsMock.getWinner).toHaveBeenCalledTimes(2)
+  utilsMock.getWinner.mock.calls.forEach(args => {
+    expect(args).toEqual(['Ken Wheeler', 'Kent C. Dodds'])
+  })
+})
+
+test('returns winner again', () => {
   const winner = thumbWar('Ken Wheeler', 'Kent C. Dodds')
   expect(winner).toBe('Kent C. Dodds')
   expect(utilsMock.getWinner).toHaveBeenCalledTimes(2)

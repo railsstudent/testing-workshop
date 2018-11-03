@@ -1,7 +1,32 @@
-// import * as postsController from '../posts.todo'
-// import db from '../../utils/db'
 // eslint-disable-next-line no-unused-vars
-import {initDb, generate} from 'til-server-test-utils'
+import {generate, initDb} from 'til-server-test-utils'
+import db from '../../utils/db'
+import * as postsController from '../posts.todo'
+
+function setup() {
+  const req = {
+    body: {},
+  }
+  const res = {}
+  Object.assign(res, {
+    status: jest.fn(
+      function status() {
+        return this
+      }.bind(res),
+    ),
+    json: jest.fn(
+      function json() {
+        return this
+      }.bind(res),
+    ),
+    send: jest.fn(
+      function send() {
+        return this
+      }.bind(res),
+    ),
+  })
+  return {req, res}
+}
 
 // I'll give this one to you. You want the database to be fresh
 // the initDb function will initialize the database with random users and posts
@@ -16,6 +41,16 @@ test('getPosts returns all posts in the database', async () => {
   // Assert:
   //   - ensure that your mock object functions were called properly
   //   - BONUS: ensure that the posts returned are the ones in the database `await db.getPosts()`
+  const req = {}
+  const res = {
+    json: jest.fn(),
+  }
+  await postsController.getPosts(req, res)
+  expect(res.json).toHaveBeenCalledTimes(1)
+  const actualPosts = await db.getPosts()
+  expect(res.json).toHaveBeenCalledWith({posts: actualPosts})
+  const {posts} = res.json.mock.calls[0][0]
+  expect(posts).toEqual(actualPosts)
 })
 
 test('getPost returns the specific post', async () => {
@@ -27,16 +62,97 @@ test('getPost returns the specific post', async () => {
   // Assert:
   //   - ensure that your mock object functions were called properly
   //   - BONUS: ensure that the post you got back is the same one in the db
+  const testPost = await db.insertPost(generate.postData())
+  const {req, res} = setup()
+  req.params = {id: testPost.id}
+
+  await postsController.getPost(req, res)
+  expect(res.json).toHaveBeenCalledTimes(1)
+  const actualPost = await db.getPost(req.params.id)
+  expect(res.json).toHaveBeenCalledWith({post: actualPost})
+  expect(res.status(400).send).toHaveBeenCalledTimes(0)
+  const {post} = res.json.mock.calls[0][0]
+  expect(post).toEqual(testPost)
+  expect(post).toEqual(actualPost)
 })
 
 test('updatePost updates the post with the given changes', async () => {
   // BONUS: If you have extra time, try to implement this test as well!
+  const title = generate.title()
+  const testPost = await db.insertPost(generate.postData())
+  const {req, res} = setup()
+  req.params = {
+    id: testPost.id,
+  }
+  req.body = {title}
+  req.user = {id: testPost.authorId}
+
+  await postsController.updatePost(req, res)
+  expect(res.json).toHaveBeenCalledTimes(1)
+  expect(res.status).toHaveBeenCalledTimes(0)
+  const {post} = res.json.mock.calls[0][0]
+  expect(post).toEqual({...testPost, title})
+  const actualPost = await db.getPost(post.id)
+  expect(post).toEqual(actualPost)
 })
 
 // Here's where you'll add your new `deletePost` tests!
 // - Think more about use cases than code coverage and use those use cases to title your tests
 // - Write the code and tests iteratively as little as necessary at a time.
 // - Create and use a `setup` test object(s) factory to keep your tests focused
+test('deletePost returns 403 if author id does not match req user id', async () => {
+  const testPost = await db.insertPost(generate.postData())
+  const {req, res} = setup()
+  req.params = {
+    id: testPost.id,
+  }
+
+  await postsController.deletePost(req, res)
+  expect(res.json).not.toHaveBeenCalled()
+  expect(res.status).toHaveBeenCalledTimes(1)
+  expect(res.status).toHaveBeenCalledWith(403)
+  expect(res.send).toHaveBeenCalledTimes(1)
+
+  const postFromDB = await db.getPost(testPost.id)
+  expect(postFromDB).toEqual(testPost)
+})
+
+test('deletePost returns 404 if post does not exist', async () => {
+  const {req, res} = setup()
+  const id = generate.id()
+  req.params = {
+    id,
+  }
+  req.user = {
+    id,
+  }
+
+  await postsController.deletePost(req, res)
+  expect(res.json).not.toHaveBeenCalled()
+  expect(res.status).toHaveBeenCalledTimes(1)
+  expect(res.status).toHaveBeenCalledWith(404)
+  expect(res.send).toHaveBeenCalledTimes(1)
+})
+
+test('deletePost should delete a post', async () => {
+  const testPost = await db.insertPost(generate.postData())
+  const {req, res} = setup()
+  const id = testPost.id
+  req.params = {
+    id,
+  }
+  req.user = {
+    id,
+  }
+
+  await postsController.deletePost(req, res)
+  expect(res.json).toHaveBeenCalledTimes(1)
+  const {post} = res.json.mock.calls[0][0]
+  expect(post).toEqual(testPost)
+
+  const actualPost = await db.getPost(id)
+  expect(actualPost).not.toBeDefined()
+})
 
 //////// Elaboration & Feedback /////////
 // When you've finished with the exercises:
